@@ -37,13 +37,18 @@ const server = http.createServer(function(request, response) {
 			}
 		);
 	} else if (mp3FileMatch) {
-		response.writeHead(200, {
-			"Content-Type": "audio/mpeg", 
-			'Transfer-Encoding':'chunked', 
-			'connection': 'keep-alive',
-			'Content-Transfer-Encoding': 'binary',
-		});
-		const videoId = mp3FileMatch[1];
+        const videoId = mp3FileMatch[1];
+        const size = ytAudioToPodcast.getAudioCacheFileSize(videoId);
+        let header = {
+            "Content-Type": "audio/mpeg",
+            'Transfer-Encoding': 'chunked',
+            'connection': 'keep-alive',
+            'Content-Transfer-Encoding': 'binary',
+        };
+        if (size > 0) {
+            header['Content-Length'] = size
+        }
+        response.writeHead(200, header);
 
 		const audioStream = ytAudioToPodcast.getAudioStreamByVideoId(videoId);
 		audioStream.pipe(response);

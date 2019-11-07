@@ -137,9 +137,18 @@ m.getAudioStreamByVideoId = function(videoId, outputStream) {
 		let videoStream = ytdl(vidUrl, {filter: 'audioonly', 'quality': 'lowest'});
 		return ffmpeg().input(videoStream).format('mp3').pipe();
 	}else{
-		return fs.createReadStream(audioSavePath).pipe()
+		return fs.createReadStream(audioSavePath);
 	}
 	// let videoStream = ytdl(vidUrl, {filter: 'audioonly'});
+};
+
+m.getAudioCacheFileSize = function (videoId) {
+	const audioSavePath = __dirname + path.sep + config.get('local.audioSavePath') + path.sep + videoId + '.mp3';
+	if (!fs.existsSync(audioSavePath)) {
+		return 0;
+	} else {
+		return fs.statSync(audioSavePath).size;
+	}
 };
 
 saveAudioFile = async function (videoId) {
