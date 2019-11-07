@@ -5,11 +5,11 @@
   "author": "Daniel Gross <daniel.gross.2@gmail.com>",
   "dependencies": {
     "fluent-ffmpeg": "^2.0.0-rc3",
-    "googleapis": "^1.1.1",
+    "googleapis": "^45.0.0",
     "nodejs-config": "^1.0.0",
     "rss": "^1.1.1",
     "underscore": "^1.7.0",
-    "ytdl-core": "0.4.1"
+    "ytdl-core": "^1.0.0"
   },
   "license": "MIT"
 }

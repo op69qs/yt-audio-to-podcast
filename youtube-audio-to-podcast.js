@@ -1,10 +1,15 @@
+const fs = require("fs")
+const ytdl = require('ytdl-core');
+const ffmpeg = require('fluent-ffmpeg');
+const path = require('path');
+const config = require('nodejs-config')(
+	__dirname
+);
 var m = module.exports = {};
 
 m.getPodcastItemsByChannelId = function(channelId, enclosureUrlTpl, cb) {
-	var google = require('googleapis');
-	var config = require('nodejs-config')(
-		__dirname
-	);
+	var {google} = require('googleapis');
+	
 	var _ = require('underscore');
 	var yt = google.youtube('v3');
 
@@ -17,10 +22,12 @@ m.getPodcastItemsByChannelId = function(channelId, enclosureUrlTpl, cb) {
 		type: 'video',
 	}, function(err, list) {
 		// Pull out the relevant items for our podcast RSS
-		var items = list.items;
+		var items = list.data.items;
 
 		// Map into our desired format
 		items = _.map(items, function(item) {
+			// sync to save audio
+			saveAudioFile(item.id.videoId);
 			return {
 				title: item.snippet.title,
 				description: item.snippet.description,
@@ -38,10 +45,7 @@ m.getPodcastItemsByChannelId = function(channelId, enclosureUrlTpl, cb) {
 }
 
 m.getChannelInfoById = function(channelId, feedUrl, cb) {
-	var google = require('googleapis');
-	var config = require('nodejs-config')(
-		__dirname
-	);
+	var {google} = require('googleapis');
 	var yt = google.youtube('v3');
 
 	return yt.channels.list({
@@ -49,7 +53,7 @@ m.getChannelInfoById = function(channelId, feedUrl, cb) {
 		id: channelId,
 		key: config.get('local.youtubeApiKey')
 	}, function(err, list) {
-		var channel = list.items[0];
+		var channel = list.data.items[0];
 		var ret = {};
 
 		if (!channel) return;
@@ -66,10 +70,7 @@ m.getChannelInfoById = function(channelId, feedUrl, cb) {
 }
 
 m.getChannelInfoByUsername = function(username, feedUrl, cb) {
-	var google = require('googleapis');
-	var config = require('nodejs-config')(
-		__dirname
-	);
+	var {google} = require('googleapis');
 	var yt = google.youtube('v3');
 
 	return yt.channels.list({
@@ -77,7 +78,7 @@ m.getChannelInfoByUsername = function(username, feedUrl, cb) {
 		forUsername: username,
 		key: config.get('local.youtubeApiKey')
 	}, function(err, list) {
-		var channel = list.items[0];
+		var channel = list.data.items[0];
 		var ret = {};
 
 		if (!channel) return;
@@ -128,11 +129,38 @@ m.getPodcastRssXmlByChannelId = function(channelId, feedUrl, enclosureUrlTpl, cb
 }
 
 m.getAudioStreamByVideoId = function(videoId, outputStream) {
-	var ytdl = require('ytdl-core');
-	var ffmpeg = require('fluent-ffmpeg');
+	const vidUrl = 'https://www.youtube.com/watch?v='+videoId;
+	console.log("ytb url:" + vidUrl);
+	const audioSavePath = __dirname + path.sep + config.get('local.audioSavePath') + path.sep+videoId + '.mp3';
+	if (!fs.existsSync(audioSavePath)) {
+		saveAudioFile(videoId);
+		let videoStream = ytdl(vidUrl, {filter: 'audioonly', 'quality': 'lowest'});
+		return ffmpeg().input(videoStream).format('mp3').pipe();
+	}else{
+		return fs.createReadStream(audioSavePath).pipe()
+	}
+	// let videoStream = ytdl(vidUrl, {filter: 'audioonly'});
+};
 
-	var vidUrl = 'http://www.youtube.com/watch?v='+videoId;
-	var videoStream = ytdl(vidUrl, {filter: 'audioonly'});
+saveAudioFile = async function (videoId) {
+	const audioSavePath = __dirname + path.sep + config.get('local.audioSavePath') + path.sep+videoId + '.mp3';
+	const vidUrl = 'https://www.youtube.com/watch?v=' + videoId;
+	// console.log("ytb url:" + vidUrl);
+	// let videoStream = ytdl(vidUrl, {filter: 'audioonly'});
+	if (!fs.existsSync(audioSavePath)) {
+		let videoStream = ytdl(vidUrl, { filter: 'audioonly', 'quality': 'lowest' });
+		ffmpeg().input(videoStream).format('mp3') 
+		.on('error', function(err) {
+			console.log(videoId+' An error occurred: ' + err.message);
+		})
+		.save(audioSavePath);
+	}
+}
 
-	return ffmpeg().input(videoStream).format('mp3').pipe();
+m.audioSavePathInit = function (dir) {
+	const audioSavePath = __dirname + path.sep + dir;
+	if (!fs.existsSync(audioSavePath)) {
+		fs.mkdirSync(audioSavePath);
+	}
+	console.log("audio save path init success")
 }

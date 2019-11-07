@@ -1,18 +1,18 @@
-var config = require('nodejs-config')(
+const config = require('nodejs-config')(
 	__dirname
 );
-var ytAudioToPodcast = require('./youtube-audio-to-podcast.js');
+const ytAudioToPodcast = require('./youtube-audio-to-podcast.js');
 
-var http = require("http");
-var server = http.createServer(function(request, response) {
+const http = require("http");
+const server = http.createServer(function(request, response) {
 	// Parse out the YT channel name
 	// Format : /[YouTube channel name]/feed.xml
-	var urlParts = request.url.split('/');
-	var channel = urlParts[1];
-	var filename = urlParts[2];
-	var mp3FileMatch = (filename || '').match(/(.*)\.mp3$/);
+	const urlParts = request.url.split('/');
+	const channel = urlParts[1];
+	const filename = urlParts[2];
+	const mp3FileMatch = (filename || '').match(/(.*)\.mp3$/);
 
-	if (filename == 'feed.xml' || filename == 'user.xml') {
+	if (filename === 'feed.xml' || filename === 'user.xml') {
 		response.writeHead(200, {"Content-Type": "application/rss+xml;charset=utf-8"});
 
 		ytAudioToPodcast.getPodcastRssXmlByUsername(
@@ -24,7 +24,7 @@ var server = http.createServer(function(request, response) {
 				response.end();
 			}
 		);
-	} else if (filename == 'channel.xml') {
+	} else if (filename === 'channel.xml') {
 		response.writeHead(200, {"Content-Type": "application/rss+xml;charset=utf-8"});
 
 		ytAudioToPodcast.getPodcastRssXmlByChannelId(
@@ -43,9 +43,9 @@ var server = http.createServer(function(request, response) {
 			'connection': 'keep-alive',
 			'Content-Transfer-Encoding': 'binary',
 		});
-		var videoId = mp3FileMatch[1];
+		const videoId = mp3FileMatch[1];
 
-		var audioStream = ytAudioToPodcast.getAudioStreamByVideoId(videoId);
+		const audioStream = ytAudioToPodcast.getAudioStreamByVideoId(videoId);
 		audioStream.pipe(response);
 	} else {
 		response.writeHead(404);
@@ -54,6 +54,7 @@ var server = http.createServer(function(request, response) {
 	}
 });
 
-var port = config.get('local.port');
+const port = config.get("local.port");
+ytAudioToPodcast.audioSavePathInit(config.get("local.audioSavePath"))
 server.listen(port);
 console.log("Listening on "+port);
