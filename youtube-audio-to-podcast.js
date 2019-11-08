@@ -128,15 +128,16 @@ m.getPodcastRssXmlByChannelId = function(channelId, feedUrl, enclosureUrlTpl, cb
 	});
 }
 
-m.getAudioStreamByVideoId = function(videoId, outputStream) {
-	const vidUrl = 'https://www.youtube.com/watch?v='+videoId;
-	console.log("ytb url:" + vidUrl);
-	const audioSavePath = __dirname + path.sep + config.get('local.audioSavePath') + path.sep+videoId + '.mp3';
+m.getAudioStreamByVideoId = function (videoId, outputStream) {
+	const vidUrl = 'https://www.youtube.com/watch?v=' + videoId;
+	const audioSavePath = __dirname + path.sep + config.get('local.audioSavePath') + path.sep + videoId + '.mp3';
 	if (!fs.existsSync(audioSavePath)) {
 		saveAudioFile(videoId);
+		console.log(new Date() + " use online to stream: " + vidUrl);
 		let videoStream = ytdl(vidUrl, {filter: 'audioonly', 'quality': 'lowest'});
-		return ffmpeg().input(videoStream).format('mp3').pipe();
-	}else{
+		return ffmpeg().input(videoStream).audioBitRate('48').format('mp3').pipe();
+	} else {
+		console.log(new Date() + " use cache file to stream: " + vidUrl);
 		return fs.createReadStream(audioSavePath);
 	}
 	// let videoStream = ytdl(vidUrl, {filter: 'audioonly'});
@@ -152,19 +153,20 @@ m.getAudioCacheFileSize = function (videoId) {
 };
 
 saveAudioFile = async function (videoId) {
-	const audioSavePath = __dirname + path.sep + config.get('local.audioSavePath') + path.sep+videoId + '.mp3';
+	const audioSavePath = __dirname + path.sep + config.get('local.audioSavePath') + path.sep + videoId + '.mp3';
 	const vidUrl = 'https://www.youtube.com/watch?v=' + videoId;
 	// console.log("ytb url:" + vidUrl);
 	// let videoStream = ytdl(vidUrl, {filter: 'audioonly'});
 	if (!fs.existsSync(audioSavePath)) {
-		let videoStream = ytdl(vidUrl, { filter: 'audioonly', 'quality': 'lowest' });
-		ffmpeg().input(videoStream).format('mp3') 
-		.on('error', function(err) {
-			console.log(videoId+' An error occurred: ' + err.message);
-		})
-		.save(audioSavePath);
+		console.log(new Date() + " start download job: " + vidUrl);
+		let videoStream = ytdl(vidUrl, {filter: 'audioonly', 'quality': 'lowest'});
+		ffmpeg().input(videoStream).audioBitRate('48').format('mp3')
+			.on('error', function (err) {
+				console.log(new Date() +" " +videoId + ' An error occurred: ' + err.message);
+			})
+			.save(audioSavePath);
 	}
-}
+};
 
 m.audioSavePathInit = function (dir) {
 	const audioSavePath = __dirname + path.sep + dir;
@@ -172,4 +174,4 @@ m.audioSavePathInit = function (dir) {
 		fs.mkdirSync(audioSavePath);
 	}
 	console.log("audio save path init success")
-}
+};
