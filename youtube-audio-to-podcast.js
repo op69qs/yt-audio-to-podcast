@@ -8,10 +8,10 @@ const config = require('nodejs-config')(
 var m = module.exports = {};
 
 m.getPodcastItemsByChannelId = function(channelId, enclosureUrlTpl, cb) {
-	var {google} = require('googleapis');
-	
-	var _ = require('underscore');
-	var yt = google.youtube('v3');
+	const {google} = require('googleapis');
+
+	const _ = require('underscore');
+	const yt = google.youtube('v3');
 
 	yt.search.list({
 		part: 'id,snippet',
@@ -25,9 +25,15 @@ m.getPodcastItemsByChannelId = function(channelId, enclosureUrlTpl, cb) {
 		var items = list.data.items;
 
 		// Map into our desired format
-		items = _.map(items, function(item) {
+		
+		items = _.map(_.filter(items,function(item){
+			if(item.snippet.liveBroadcastContent!=='live'){
+				return items
+			}
+		}), function(item) {
 			// sync to save audio
-			saveAudioFile(item.id.videoId);
+			// saveAudioFile(item.id.videoId);
+			
 			return {
 				title: item.snippet.title,
 				description: item.snippet.description,
@@ -40,6 +46,7 @@ m.getPodcastItemsByChannelId = function(channelId, enclosureUrlTpl, cb) {
 			};
 		});
 
+		
 		cb(items);
 	});
 }
@@ -133,11 +140,11 @@ m.getAudioStreamByVideoId = function (videoId, outputStream) {
 	const audioSavePath = __dirname + path.sep + config.get('local.audioSavePath') + path.sep + videoId + '.mp3';
 	if (!fs.existsSync(audioSavePath)) {
 		saveAudioFile(videoId);
-		console.log(new Date() + " use online to stream: " + vidUrl);
-		let videoStream = ytdl(vidUrl, {filter: 'audioonly', 'quality': 'lowest'});
-		return ffmpeg().input(videoStream).audioBitRate('48').format('mp3').pipe();
+		console.log(new Date().toLocaleString() + " use online to stream: " + vidUrl);
+		let videoStream = ytdl(vidUrl);
+		return ffmpeg().input(videoStream).withAudioBitrate('48').format('mp3').pipe();
 	} else {
-		console.log(new Date() + " use cache file to stream: " + vidUrl);
+		console.log(new Date().toLocaleString() + " use cache file to stream: " + vidUrl);
 		return fs.createReadStream(audioSavePath);
 	}
 	// let videoStream = ytdl(vidUrl, {filter: 'audioonly'});
@@ -158,11 +165,11 @@ saveAudioFile = async function (videoId) {
 	// console.log("ytb url:" + vidUrl);
 	// let videoStream = ytdl(vidUrl, {filter: 'audioonly'});
 	if (!fs.existsSync(audioSavePath)) {
-		console.log(new Date() + " start download job: " + vidUrl);
-		let videoStream = ytdl(vidUrl, {filter: 'audioonly', 'quality': 'lowest'});
-		ffmpeg().input(videoStream).audioBitRate('48').format('mp3')
+		console.log(new Date().toLocaleString() + " start download job: " + vidUrl);
+		let videoStream = ytdl(vidUrl);
+		ffmpeg().input(videoStream).withAudioBitrate('48').format('mp3')
 			.on('error', function (err) {
-				console.log(new Date() +" " +videoId + ' An error occurred: ' + err.message);
+				console.log(new Date().toLocaleString() +" " +videoId + ' An error occurred: ' + err.message);
 			})
 			.save(audioSavePath);
 	}
