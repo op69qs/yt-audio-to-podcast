@@ -32,7 +32,7 @@ m.getPodcastItemsByChannelId = function(channelId, enclosureUrlTpl, cb) {
 			}
 		}), function(item) {
 			// sync to save audio
-			// saveAudioFile(item.id.videoId);
+			saveAudioFile(item.id.videoId);
 			
 			return {
 				title: item.snippet.title,
