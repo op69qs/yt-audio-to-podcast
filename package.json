@@ -9,7 +9,8 @@
     "nodejs-config": "^1.0.0",
     "rss": "^1.1.1",
     "underscore": "^1.7.0",
-    "ytdl-core": "^1.0.0"
+    "ytdl-core": "^1.0.0",
+    "bull": "^3.12.1"
   },
   "license": "MIT"
 }
