@@ -5,9 +5,11 @@ const Queue = require('bull');
 const audioQueue = new Queue('audio transcoding', {
     redis: {port: 6379, host: '127.0.0.1'},
     limiter: {
-        max: 10
+        max: 10,
+        duration: 60000 // per duration milliseconds
     }
 }); // Specify Redis connection using object
+
 
 const {exec} = require('child_process');
 
@@ -16,7 +18,9 @@ const config = require('nodejs-config')(
     __dirname
 );
 const m = module.exports = {};
-
+audioQueue.process("audio_download",1,function (job, done) {
+    saveAudioFile(job.data.videoId)
+});
 m.getPodcastItemsByChannelId = function (channelId, enclosureUrlTpl, cb) {
     const {google} = require('googleapis');
 
@@ -42,7 +46,11 @@ m.getPodcastItemsByChannelId = function (channelId, enclosureUrlTpl, cb) {
             }
         }), function (item) {
             // sync to save audio
-            saveAudioFile(item.id.videoId);
+            // use queue
+            audioQueue.add("audio_download",{"videoId":item.id.videoId},{
+                "jobId":item.id.videoId
+            });
+            // saveAudioFile(item.id.videoId);
 
             return {
                 title: item.snippet.title,
@@ -152,15 +160,25 @@ m.getPodcastRssXmlByChannelId = function (channelId, feedUrl, enclosureUrlTpl, c
 m.getAudioStreamByVideoId = function (videoId, cb) {
     const vidUrl = 'https://www.youtube.com/watch?v=' + videoId;
     const audioSavePath = __dirname + path.sep + config.get('local.audioSavePath') + path.sep + videoId + '.mp3';
-    if (!fs.existsSync(audioSavePath)) {
-        saveAudioFile(videoId, cb);
-        // console.log(new Date().toLocaleString() + " use online to stream: " + vidUrl);
-        // let videoStream = ytdl(vidUrl);
-        // ffmpeg().input(videoStream).withAudioBitrate('48').format('mp3').pipe();
-    } else {
+    let job=audioQueue.getJobFromId(videoId);
+    if (job.isCompleted()) {
         console.log(new Date().toLocaleString() + " use cache file to stream: " + vidUrl);
-        cb(fs.createReadStream(audioSavePath), fs.statSync(audioSavePath).size)
+        cb(fs.createReadStream(audioSavePath), fs.statSync(audioSavePath).size);
+    }else{
+        job.on('completed', function(job, result){
+            cb(fs.createReadStream(audioSavePath), fs.statSync(audioSavePath).size);
+        });
     }
+
+    // if (!fs.existsSync(audioSavePath)) {
+    //     saveAudioFile(videoId, cb);
+    //     // console.log(new Date().toLocaleString() + " use online to stream: " + vidUrl);
+    //     // let videoStream = ytdl(vidUrl);
+    //     // ffmpeg().input(videoStream).withAudioBitrate('48').format('mp3').pipe();
+    // } else {
+    //     console.log(new Date().toLocaleString() + " use cache file to stream: " + vidUrl);
+    //     cb(fs.createReadStream(audioSavePath), fs.statSync(audioSavePath).size)
+    // }
     // let videoStream = ytdl(vidUrl, {filter: 'audioonly'});
 };
 
@@ -193,9 +211,10 @@ saveAudioFile = async function (videoId, cb) {
         // }).save(audioSavePath);
 
         exec("youtube-dl -f 'worstaudio' '" + vidUrl + "' -o " + audioSavePath, function (err, stdout, stderr) {
-            if (err) {
-                console.error(new Date().toLocaleString() + " " + stdout);
-                cb(null, null, err)
+            if (err || stderr) {
+                console.error(new Date().toLocaleString() + "\t" + err);
+                console.error("\t\t" + stderr);
+                cb(null, null, stderr)
             } else {
                 if (cb && typeof cb === "function") {
                     cb(fs.createReadStream(audioSavePath), fs.statSync(audioSavePath).size, err);
